@@ -17,12 +17,17 @@
 import os
 import webapp2
 import jinja2
+import json
 from google.appengine.ext import db
 
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir), autoescape=True)
 
-class Blog(db.Model):
+class DictModel(db.Model):
+    def to_dict(self):
+       return dict([(p, unicode(getattr(self, p))) for p in self.properties()])
+       
+class Blog(DictModel):
     title = db.StringProperty(required = True)
     entry = db.TextProperty(required = True)
     created = db.DateTimeProperty(auto_now_add = True)
@@ -61,8 +66,17 @@ class NewBlogPage(Handler):
         blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC")
         self.render("newpost.html", blogs=blogs)
 
+class MainJson(Handler):
+
+    def get(self):
+        #blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC")
+        blogs = Blog.all()
+        self.response.headers['Content-Type'] = 'application/json'
+        self.response.body = json.dumps([blog.to_dict() for blog in blogs])
+        self.response.set_status(200)
 
 app = webapp2.WSGIApplication([
     ('/blog', MainPage), 
-    ('/blog/newpost', NewBlogPage)
+    ('/blog/newpost', NewBlogPage),
+    ('/blog.json', MainJson)
 ], debug=True)
